@@ -31,21 +31,21 @@ pub struct ClientTransactionResult {
 
 #[post("/clientes/{id}/transacoes")]
 async fn client_transaction(
-  path: web::Path<usize>,
+  id: web::Path<usize>,
   data: web::Json<ClientTransactionPayload>,
 ) -> impl Responder {
-  let id = path.into_inner();
+  let id = id.into_inner();
 
   if data.description.is_empty() || data.description.len() > 10 {
     return HttpResponse::BadRequest().body("invalid description");
   }
 
   let mut client = {
-    let Some(guard) = CLIENTS.get(&id) else {
+    let Some(client_guard) = CLIENTS.get(&id) else {
       return HttpResponse::NotFound().finish();
     };
 
-    guard.lock().unwrap()
+    client_guard.lock().unwrap()
   };
 
   match data.kind {
