@@ -1,7 +1,23 @@
+use std::{
+  collections::HashMap,
+  sync::{Arc, Mutex},
+};
+
+use once_cell::sync::Lazy;
+
 pub mod transactions;
 
+// mock in-memory client list
+static CLIENTS: Lazy<HashMap<usize, Arc<Mutex<Client>>>> = Lazy::new(|| {
+  let mut map = HashMap::new();
+  map.insert(1, Arc::new(Mutex::new(Client::new(1, 1000, 0).unwrap())));
+  map.insert(2, Arc::new(Mutex::new(Client::new(2, 1000, 500).unwrap())));
+  map.insert(3, Arc::new(Mutex::new(Client::new(3, 1000, -900).unwrap())));
+  map
+});
+
 #[derive(Debug, PartialEq)]
-enum ClientError {
+pub enum ClientError {
   OverLimit,
 }
 
@@ -60,11 +76,7 @@ mod test {
 
   #[test]
   fn client_debit() {
-    let mut client = Client {
-      id: 1,
-      limit: 1000,
-      balance: 0,
-    };
+    let mut client = Client::new(1, 1000, 0).unwrap();
 
     assert_eq!(client.debit(1000), Ok(()));
     assert_eq!(client.debit(1), Err(ClientError::OverLimit));
@@ -73,11 +85,7 @@ mod test {
 
   #[test]
   fn client_credit() {
-    let mut client = Client {
-      id: 1,
-      limit: 1000,
-      balance: 0,
-    };
+    let mut client = Client::new(1, 1000, 0).unwrap();
 
     client.credit(15);
     client.credit(10);
