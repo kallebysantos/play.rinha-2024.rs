@@ -1,10 +1,11 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
 
-use crate::clients::CLIENTS;
+use crate::clients::{CLIENTS, Transaction, TransactionKind};
 
 #[derive(Deserialize, Debug)]
-enum TransactionKind {
+#[serde(remote = "TransactionKind")]
+pub enum TransactionKindPayload {
   #[serde(rename = "c")]
   Credit,
   #[serde(rename = "d")]
@@ -15,7 +16,7 @@ enum TransactionKind {
 pub struct ClientTransactionPayload {
   #[serde(rename = "valor")]
   value: usize,
-  #[serde(rename = "tipo")]
+  #[serde(rename = "tipo", with = "TransactionKindPayload")]
   kind: TransactionKind,
   #[serde(rename = "descricao")]
   description: String,
@@ -35,6 +36,7 @@ async fn client_transaction(
   data: web::Json<ClientTransactionPayload>,
 ) -> impl Responder {
   let id = id.into_inner();
+  let data = data.into_inner();
 
   if data.description.is_empty() || data.description.len() > 10 {
     return HttpResponse::BadRequest().body("invalid description");
@@ -48,17 +50,14 @@ async fn client_transaction(
     client_guard.lock().unwrap()
   };
 
-  match data.kind {
-    TransactionKind::Credit => client.credit(data.value),
-    TransactionKind::Debit => {
-      if let Err(e) = client.debit(data.value) {
-        eprintln!("Error while processing transaction: {e:?}");
-        return HttpResponse::UnprocessableEntity().finish();
-      }
-    }
-  };
+  let transaction = Transaction::new(data.value, data.kind, data.description);
 
-  println!("client: {} was sucessfully updated", client.id);
+  if let Err(e) = client.execute_transaction(transaction) {
+    eprintln!("Error while processing transaction: {e:?}");
+    return HttpResponse::UnprocessableEntity().finish();
+  }
+
+  println!("client: {client:#?} was sucessfully updated");
 
   HttpResponse::Ok().json(ClientTransactionResult {
     limit: client.limit,

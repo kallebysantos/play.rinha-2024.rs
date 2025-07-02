@@ -3,8 +3,10 @@ use std::{
   sync::{Arc, Mutex},
 };
 
+use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 
+pub mod statements;
 pub mod transactions;
 
 // mock in-memory client list
@@ -15,16 +17,42 @@ static CLIENTS: Lazy<HashMap<usize, Arc<Mutex<Client>>>> = Lazy::new(|| {
   map.insert(3, Arc::new(Mutex::new(Client::new(3, 1000, -900).unwrap())));
   map
 });
-
 #[derive(Debug, PartialEq)]
 pub enum ClientError {
   OverLimit,
 }
 
+#[derive(Debug)]
+pub enum TransactionKind {
+  Credit,
+  Debit,
+}
+
+#[derive(Debug)]
+pub struct Transaction {
+  value: usize,
+  kind: TransactionKind,
+  description: String,
+  timestamp: Option<DateTime<Utc>>,
+}
+
+impl Transaction {
+  pub fn new(value: usize, kind: TransactionKind, description: String) -> Self {
+    Self {
+      value,
+      kind,
+      description,
+      timestamp: None,
+    }
+  }
+}
+
+#[derive(Debug)]
 pub struct Client {
   id: usize,
   limit: usize,
   balance: isize,
+  transactions: Vec<Transaction>,
 }
 
 fn is_valid_balance(balance: isize, limit: usize) -> Result<(), ClientError> {
@@ -43,10 +71,31 @@ impl Client {
   ) -> Result<Self, ClientError> {
     is_valid_balance(balance, limit)?;
 
-    Ok(Self { id, limit, balance })
+    Ok(Self {
+      id,
+      limit,
+      balance,
+      transactions: Vec::new(),
+    })
   }
 
-  pub fn debit(&mut self, value: usize) -> Result<(), ClientError> {
+  pub fn execute_transaction(
+    &mut self,
+    mut transaction: Transaction,
+  ) -> Result<(), ClientError> {
+    match transaction.kind {
+      TransactionKind::Credit => self.credit(transaction.value),
+      TransactionKind::Debit => self.debit(transaction.value)?,
+    }
+
+    transaction.timestamp = Some(Utc::now());
+
+    self.transactions.push(transaction);
+
+    Ok(())
+  }
+
+  fn debit(&mut self, value: usize) -> Result<(), ClientError> {
     let new_balance = self.balance - (value as isize);
 
     is_valid_balance(new_balance, self.limit)?;
@@ -56,7 +105,7 @@ impl Client {
     Ok(())
   }
 
-  pub fn credit(&mut self, value: usize) {
+  fn credit(&mut self, value: usize) {
     self.balance += value as isize;
   }
 }
