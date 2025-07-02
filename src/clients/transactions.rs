@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::clients::{CLIENTS, Transaction, TransactionKind};
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(remote = "TransactionKind")]
 pub enum TransactionKindPayload {
   #[serde(rename = "c")]

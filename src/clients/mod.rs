@@ -22,7 +22,7 @@ pub enum ClientError {
   OverLimit,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TransactionKind {
   Credit,
   Debit,
