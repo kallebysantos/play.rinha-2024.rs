@@ -6,6 +6,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 
+mod db;
 pub mod statements;
 pub mod transactions;
 
