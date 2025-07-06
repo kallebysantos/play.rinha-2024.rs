@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::clients::transactions::TransactionKindPayload;
-use crate::clients::{CLIENTS, TransactionKind};
+use crate::clients::{Client, TransactionKind};
+use crate::db::establish_connection;
 
 #[derive(Serialize, Debug)]
 pub struct TransactionResult {
@@ -38,12 +39,9 @@ pub struct StatementResult {
 async fn client_statement(id: web::Path<usize>) -> impl Responder {
   let id = id.into_inner();
 
-  let client = {
-    let Some(client_guard) = CLIENTS.get(&id) else {
-      return HttpResponse::NotFound().finish();
-    };
-
-    client_guard.lock().unwrap()
+  let mut conn = establish_connection();
+  let Ok(Some(client)) = Client::find_with_transactions(&mut conn, id) else {
+    return HttpResponse::NotFound().finish();
   };
 
   let last_transactions = client

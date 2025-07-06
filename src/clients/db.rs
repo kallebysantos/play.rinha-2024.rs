@@ -63,22 +63,38 @@ impl FromStr for TransactionKind {
   }
 }
 
-pub fn get_client_by_id(
-  conn: &mut PgConnection,
-  client_id: usize,
-) -> QueryResult<Option<Client>> {
-  //use self::{clients::dsl::*, transactions::dsl::*};
+impl Client {
+  pub fn find(
+    conn: &mut PgConnection,
+    client_id: usize,
+  ) -> QueryResult<Option<Client>> {
+    let client = Client::load(conn, client_id).optional()?.map(Client::from);
 
-  let client = clients::table
-    .filter(clients::id.eq(client_id as i32))
-    .select(DbClient::as_select())
-    .get_result(conn)?;
+    Ok(client)
+  }
 
-  let transactions = DbTransaction::belonging_to(&client)
-    .select(DbTransaction::as_select())
-    .load::<DbTransaction>(conn)?;
+  pub fn find_with_transactions(
+    conn: &mut PgConnection,
+    client_id: usize,
+  ) -> QueryResult<Option<Client>> {
+    let client = Client::load(conn, client_id)?;
 
-  println!("Client: {client:?} has {transactions:#?}");
+    let transactions = DbTransaction::belonging_to(&client)
+      .select(DbTransaction::as_select())
+      .load::<DbTransaction>(conn)?;
 
-  todo!()
+    let mut client = Client::from(client);
+
+    client.transactions =
+      transactions.into_iter().map(Transaction::from).collect();
+
+    Ok(Some(client))
+  }
+
+  fn load(conn: &mut PgConnection, client_id: usize) -> QueryResult<DbClient> {
+    clients::table
+      .filter(clients::id.eq(client_id as i32))
+      .select(DbClient::as_select())
+      .get_result(conn)
+  }
 }
