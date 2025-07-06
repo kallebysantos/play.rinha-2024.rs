@@ -1,24 +1,27 @@
-use diesel::prelude::*;
+// @generated automatically by Diesel CLI.
 
 diesel::table! {
-    clients(id) {
-        id -> Integer,
-        limit -> Integer,
-        balance -> Integer,
+    clients (id) {
+        id -> Int4,
+        limit -> Int4,
+        balance -> Int4,
     }
-
 }
 
 diesel::table! {
-    transactions(id) {
-        id -> Integer,
-        client_id -> Integer,
-        value -> Integer,
+    transactions (id) {
+        id -> Int4,
+        client_id -> Int4,
+        value -> Int4,
         kind -> Text,
         description -> Text,
-        timestamp -> Nullable<Timestamptz>,
+        timestamp -> Timestamptz,
     }
 }
 
-joinable!(transactions -> clients(client_id));
-allow_tables_to_appear_in_same_query!(clients, transactions);
+diesel::joinable!(transactions -> clients (client_id));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    clients,
+    transactions,
+);
