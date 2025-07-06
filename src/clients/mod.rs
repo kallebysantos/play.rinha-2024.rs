@@ -1,32 +1,33 @@
-use std::{
-  collections::HashMap,
-  sync::{Arc, Mutex},
-};
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use once_cell::sync::Lazy;
 
 mod db;
 pub mod statements;
 pub mod transactions;
 
-// mock in-memory client list
-static CLIENTS: Lazy<HashMap<usize, Arc<Mutex<Client>>>> = Lazy::new(|| {
-  let mut map = HashMap::new();
-  map.insert(1, Arc::new(Mutex::new(Client::new(1, 1000, 0).unwrap())));
-  map.insert(2, Arc::new(Mutex::new(Client::new(2, 1000, 500).unwrap())));
-  map.insert(3, Arc::new(Mutex::new(Client::new(3, 1000, -900).unwrap())));
-  map
-});
 #[derive(Debug, PartialEq)]
 pub enum ClientError {
   OverLimit,
+  TransactionUnref,
 }
 
 #[derive(Debug, Clone)]
 pub enum TransactionKind {
   Credit,
   Debit,
+}
+
+impl FromStr for TransactionKind {
+  type Err = ();
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    match s.to_ascii_lowercase().as_str() {
+      "c" | "credit" => Ok(TransactionKind::Credit),
+      "d" | "debit" => Ok(TransactionKind::Debit),
+      _ => Err(()),
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -83,7 +84,7 @@ impl Client {
   pub fn execute_transaction(
     &mut self,
     mut transaction: Transaction,
-  ) -> Result<(), ClientError> {
+  ) -> Result<&Transaction, ClientError> {
     match transaction.kind {
       TransactionKind::Credit => self.credit(transaction.value),
       TransactionKind::Debit => self.debit(transaction.value)?,
@@ -92,8 +93,12 @@ impl Client {
     transaction.timestamp = Some(Utc::now());
 
     self.transactions.push(transaction);
+    let transaction_ref = self
+      .transactions
+      .last()
+      .ok_or(ClientError::TransactionUnref)?;
 
-    Ok(())
+    Ok(transaction_ref)
   }
 
   fn debit(&mut self, value: usize) -> Result<(), ClientError> {

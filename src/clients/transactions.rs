@@ -1,7 +1,10 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
 
-use crate::clients::{CLIENTS, Transaction, TransactionKind};
+use crate::{
+  clients::{Client, Transaction, TransactionKind},
+  db::establish_connection,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(remote = "TransactionKind")]
@@ -42,20 +45,17 @@ async fn client_transaction(
     return HttpResponse::BadRequest().body("invalid description");
   }
 
-  let mut client = {
-    let Some(client_guard) = CLIENTS.get(&id) else {
-      return HttpResponse::NotFound().finish();
-    };
-
-    client_guard.lock().unwrap()
+  let mut conn = establish_connection();
+  let Ok(Some(mut client)) = Client::find(&mut conn, id) else {
+    return HttpResponse::NotFound().finish();
   };
 
   let transaction = Transaction::new(data.value, data.kind, data.description);
 
-  if let Err(e) = client.execute_transaction(transaction) {
+  if let Err(e) = client.apply_transaction(&mut conn, transaction) {
     eprintln!("Error while processing transaction: {e:?}");
     return HttpResponse::UnprocessableEntity().finish();
-  }
+  };
 
   println!("client: {client:#?} was sucessfully updated");
 
